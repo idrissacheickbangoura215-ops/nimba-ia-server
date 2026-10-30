@@ -1,0 +1,10 @@
+.env
+node_modules/
+.env.*
+!.env.example
+backups/
+*.log
+*.apk
+*.backup*
+*.before-*
+*.avant-*
