@@ -21,6 +21,38 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '32kb' }));
 
+// Limitation simple : 10 questions par adresse IP et par minute.
+const requestCounts = new Map();
+const RATE_WINDOW = 60 * 1000;
+const RATE_LIMIT = 10;
+
+app.use('/api/chat', (req, res, next) => {
+  const now = Date.now();
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  let record = requestCounts.get(ip);
+
+  if (!record || now - record.start >= RATE_WINDOW) {
+    record = { start: now, count: 0 };
+  }
+
+  record.count++;
+  requestCounts.set(ip, record);
+
+  if (requestCounts.size > 1000) {
+    for (const [key, value] of requestCounts) {
+      if (now - value.start >= RATE_WINDOW) requestCounts.delete(key);
+    }
+  }
+
+  if (record.count > RATE_LIMIT) {
+    return res.status(429).json({
+      error: 'Trop de questions. Attends une minute avant de réessayer.'
+    });
+  }
+
+  next();
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'NIMBA IA' });
 });
